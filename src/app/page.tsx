@@ -1,113 +1,106 @@
-import Image from "next/image";
+"use client";
+import React, { FormEvent, useEffect, useState } from "react";
+import { ChatSession, GoogleGenerativeAI } from "@google/generative-ai";
 
-export default function Home() {
+const API_KEY = "ADD_YOUR_API_KEY";
+const genAI = new GoogleGenerativeAI(API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+let PROMPT =
+  "Let's create a role playing choose your own adventure style game! Could you start off this game with one random start to a choose your own adventure game? and then I want you to act as a narrator and tell me what happens when I pick an action. Each time, return just the text of what happens when the user selects that option and also provide in that text options that the user can take. Do not add new line delimiters.";
+
+interface Message {
+  role: string;
+  parts: string;
+}
+
+export default function Chatbot() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [userInput, setUserInput] = useState("");
+  const [chat, setChat] = useState<ChatSession>();
+
+  useEffect(() => {
+    const chat = model.startChat({
+      generationConfig: {
+        maxOutputTokens: 1200,
+      },
+    });
+    setChat(chat);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      if (chat) {
+        const result = await chat.sendMessage(PROMPT);
+        const response = result.response;
+        const text = response.text();
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { parts: text, role: "model" },
+        ]);
+      }
+    })();
+  }, [chat]);
+
+  const sendMessage = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (userInput.trim() === "") {
+      return;
+    }
+
+    const newMessage = {
+      role: "user",
+      parts: userInput,
+    };
+
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
+    setUserInput("");
+
+    if (chat) {
+      const result = await chat.sendMessage(userInput);
+      const response = result.response;
+      const text = response.text();
+
+      const newMessage = {
+        role: "model",
+        parts: text,
+      };
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex flex-col h-screen p-6 mx-auto max-w-4xl">
+      <div className="text-3xl text-white font-bold flex items-center justify-center mb-4">
+        Your adventure
+      </div>
+      <div className="flex-grow flex flex-col overflow-y-auto p-4">
+        {messages.map((message) => (
+          <div
+            key={message.parts}
+            className={`mb-2 py-2 px-3 rounded-xl ${
+              message.role === "user" ? "text-right self-end" : "text-left"
+            } ${
+              message.role === "user"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200 text-black"
+            }`}
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
+            {message.parts}
+          </div>
+        ))}
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+      <form
+        className="flex items-center p-4 w-full"
+        onSubmit={(e) => sendMessage(e)}
+      >
+        <input
+          className="flex-grow rounded-lg p-2 mr-2 border-2 w-full text-black"
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
         />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+        <button className="bg-blue-500 text-white p-2 rounded-lg">Send</button>
+      </form>
+    </div>
   );
 }
